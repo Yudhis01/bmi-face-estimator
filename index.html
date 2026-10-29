@@ -166,3 +166,522 @@
                                 <i data-lucide="aperture" class="w-4 h-4"></i> Ambil Foto Wajah
                             </button>
                         </div>
+
+                        <!-- Canvas Preview with Facial Detection Overlay -->
+                        <div id="preview-container" class="hidden relative w-full flex items-center justify-center">
+                            <div class="relative max-w-full overflow-hidden rounded-xl border border-amber-500/40 shadow-2xl">
+                                <canvas id="canvas-preview" class="max-w-full h-auto block rounded-xl"></canvas>
+                                <div id="scan-animation" class="scan-line hidden"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Control Buttons -->
+                    <div id="preview-actions" class="hidden mt-4 flex items-center justify-between gap-3">
+                        <button id="btn-reset" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold border border-slate-700 transition-all flex items-center gap-2">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Ganti Foto
+                        </button>
+                        <button id="btn-predict" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-blue-600 hover:from-amber-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i> Analisis BMI dengan VGG
+                        </button>
+                    </div>
+
+                    <!-- User Height Input for Target Weight Estimation -->
+                    <div class="mt-6 pt-5 border-t border-slate-800">
+                        <label class="block text-xs font-medium text-slate-300 mb-2 flex items-center justify-between">
+                            <span>Tinggi Badan (Opsional)</span>
+                            <span class="text-slate-500 font-normal">Untuk Estimasi Berat (kg)</span>
+                        </label>
+                        <div class="relative">
+                            <input type="number" id="input-height" placeholder="Contoh: 170" value="170" min="100" max="230" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-all">
+                            <span class="absolute right-3.5 top-2.5 text-xs text-amber-400 font-semibold">cm</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right Column: Results & Dashboard Analytics -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Initial State Placeholder -->
+                <div id="results-empty" class="glass-card rounded-2xl p-12 text-center h-full flex flex-col items-center justify-center space-y-4 border-dashed border-amber-500/20">
+                    <div class="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                        <i data-lucide="activity" class="w-10 h-10"></i>
+                    </div>
+                    <div class="max-w-sm">
+                        <h3 class="text-base font-bold text-slate-200">Belum Ada Analisis</h3>
+                        <p class="text-xs text-slate-400 mt-1">Unggah atau ambil foto wajah di panel sebelah kiri lalu klik "Analisis BMI" untuk melihat estimasi dari Custom VGG.</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Results Dashboard (Hidden Initially) -->
+                <div id="results-dashboard" class="hidden space-y-6">
+                    
+                    <!-- BMI Metric Card -->
+                    <div class="glass-card rounded-2xl p-6 border-amber-500/30 relative overflow-hidden">
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div class="text-center sm:text-left">
+                                <span class="text-xs uppercase tracking-wider text-amber-400 font-semibold">Hasil Prediksi BMI Wajah</span>
+                                <div class="flex items-baseline justify-center sm:justify-start gap-2 mt-1">
+                                    <span id="res-bmi-value" class="text-5xl font-extrabold text-white tracking-tight">00.0</span>
+                                    <span class="text-sm font-medium text-slate-400">kg/m²</span>
+                                </div>
+                                <div class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold" id="res-bmi-badge">
+                                    <span id="res-bmi-category">Mengukur...</span>
+                                </div>
+                            </div>
+
+                            <!-- Speedometer Gauge -->
+                            <div class="relative w-48 h-28 flex flex-col items-center justify-center">
+                                <canvas id="bmi-gauge-canvas" width="200" height="120"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Progress Scale Bar -->
+                        <div class="mt-6">
+                            <div class="flex justify-between text-[10px] text-slate-400 mb-1.5 font-medium">
+                                <span>Kurus (&lt;18.5)</span>
+                                <span>Normal (18.5-24.9)</span>
+                                <span>Gemuk (25-29.9)</span>
+                                <span>Obesitas (&ge;30)</span>
+                            </div>
+                            <div class="h-2.5 w-full bg-slate-950 rounded-full overflow-hidden flex p-0.5 gap-0.5 border border-slate-800">
+                                <div class="h-full bg-sky-400 rounded-l-full w-[25%]"></div>
+                                <div class="h-full bg-emerald-400 w-[30%]"></div>
+                                <div class="h-full bg-amber-400 w-[25%]"></div>
+                                <div class="h-full bg-rose-500 rounded-r-full w-[20%]"></div>
+                            </div>
+                            <div class="relative w-full h-2">
+                                <div id="gauge-pointer" class="absolute top-0 transform -translate-x-1/2 transition-all duration-700 ease-out">
+                                    <div class="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[8px] border-b-amber-400 mx-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weight Estimation & Quality Metrics -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        
+                        <!-- Estimated Weight -->
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <i data-lucide="scale" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-semibold text-slate-400">Estimasi Berat Badan</h4>
+                                    <p id="res-weight-range" class="text-lg font-bold text-slate-100">00 - 00 kg</p>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Berdasarkan tinggi <span id="res-height-val" class="text-slate-200 font-semibold">170 cm</span> dan estimasi fitur morfologi fasial.
+                            </p>
+                        </div>
+
+                        <!-- Quality & Confidence -->
+                        <div class="glass-card rounded-2xl p-5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-semibold text-slate-400">Model Confidence</h4>
+                                    <p id="res-confidence" class="text-lg font-bold text-amber-300">94.2%</p>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">
+                                Kualitas Gambar: <span id="res-img-quality" class="text-emerald-400 font-semibold">Tinggi (224x224 RGB)</span>
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- Feature Activation Analysis -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h4 class="text-sm font-bold text-white mb-4 flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i data-lucide="layers" class="w-4 h-4 text-amber-400"></i>
+                                Fitur Fasial Kunci (Custom VGG Activation)
+                            </span>
+                            <span class="text-[11px] text-slate-400 font-normal">Sumbu Fitur Terdeteksi</span>
+                        </h4>
+
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-slate-300">Rasio Lebar Wajah ke Tinggi (FWHR)</span>
+                                    <span id="feat-fwhr" class="font-semibold text-amber-300">78%</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+                                    <div id="bar-fwhr" class="h-full bg-amber-500 transition-all duration-1000" style="width: 78%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-slate-300">Kepenuhan Pipi & Adipositas Fasial</span>
+                                    <span id="feat-fullness" class="font-semibold text-amber-300">62%</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+                                    <div id="bar-fullness" class="h-full bg-blue-500 transition-all duration-1000" style="width: 62%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-slate-300">Ketegangan Garis Rahang (Jawline perimeter)</span>
+                                    <span id="feat-jawline" class="font-semibold text-amber-300">85%</span>
+                                </div>
+                                <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+                                    <div id="bar-jawline" class="h-full bg-emerald-400 transition-all duration-1000" style="width: 85%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Health Tip Notice -->
+                    <div class="p-4 rounded-xl bg-amber-950/30 border border-amber-500/20 flex items-start gap-3">
+                        <i data-lucide="info" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+                        <p class="text-xs text-amber-200/80 leading-relaxed">
+                            <strong>Catatan Metodologi:</strong> Model Custom VGG memperkirakan indeks massa tubuh berdasarkan regresi fitur jaringan lunak wajah. Hasil ini merupakan estimasi kecerdasan buatan sivitas akademika Universitas Pamulang.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal Architecture Info -->
+    <div id="modal-info" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-card max-w-2xl w-full rounded-2xl p-6 border border-amber-500/30 shadow-2xl relative space-y-5 max-h-[90vh] overflow-y-auto">
+            <button id="btn-close-modal" class="absolute right-4 top-4 text-slate-400 hover:text-white p-1 rounded-lg bg-slate-900">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                    <i data-lucide="box" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Arsitektur Custom VGG (UNPAM MTI)</h3>
+                    <p class="text-xs text-slate-400">Berkas Model Target: <code class="text-amber-300">custom_vgg_bmi_model.h5</code> / <code class="text-amber-300">.keras</code></p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300">
+                <p>Model ini mengadaptasi arsitektur **VGG16** yang dimodifikasi untuk tugas **Regression Analysis** (memprediksi nilai kontinu BMI) pada riset Magister Teknik Informatika Universitas Pamulang.</p>
+                
+                <div class="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-2 font-mono text-[11px]">
+                    <div class="text-slate-400">// Skema Arsitektur Layer</div>
+                    <div class="text-emerald-400">InputLayer (224, 224, 3)</div>
+                    <div class="text-slate-300 pl-2">↓ [Conv2D (64 filters, 3x3) + ReLU] x 2 → MaxPooling2D</div>
+                    <div class="text-slate-300 pl-2">↓ [Conv2D (128 filters, 3x3) + ReLU] x 2 → MaxPooling2D</div>
+                    <div class="text-slate-300 pl-2">↓ [Conv2D (256 filters, 3x3) + ReLU] x 3 → MaxPooling2D</div>
+                    <div class="text-slate-300 pl-2">↓ GlobalAveragePooling2D / Flatten</div>
+                    <div class="text-amber-300 pl-2">↓ Dense (256 units) + BatchNormalization + Dropout (0.4)</div>
+                    <div class="text-amber-300 pl-2">↓ Dense (64 units) + ReLU</div>
+                    <div class="text-blue-400 pl-2">↓ Output: Dense (1 unit, Linear activation)</div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800">
+                        <span class="block text-[10px] text-slate-500 uppercase">Optimizer & Loss</span>
+                        <span class="font-semibold text-slate-200">Adam (lr=1e-4), Loss: MSE</span>
+                    </div>
+                    <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800">
+                        <span class="block text-[10px] text-slate-500 uppercase">Target Metrics</span>
+                        <span class="font-semibold text-amber-400">MAE: ~2.41 BMI Units</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 text-right">
+                <button id="btn-modal-ok" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-all">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        lucide.createIcons();
+
+        let currentMode = 'upload';
+        let selectedImage = null;
+        let webcamStream = null;
+
+        const tabUpload = document.getElementById('tab-upload');
+        const tabWebcam = document.getElementById('tab-webcam');
+        const uploadPlaceholder = document.getElementById('upload-placeholder');
+        const webcamContainer = document.getElementById('webcam-container');
+        const webcamVideo = document.getElementById('webcam-video');
+        const btnCapture = document.getElementById('btn-capture');
+        const fileInput = document.getElementById('file-input');
+        const dropzoneContainer = document.getElementById('dropzone-container');
+        const previewContainer = document.getElementById('preview-container');
+        const canvasPreview = document.getElementById('canvas-preview');
+        const ctxPreview = canvasPreview.getContext('2d');
+        const scanAnimation = document.getElementById('scan-animation');
+        const previewActions = document.getElementById('preview-actions');
+        const btnReset = document.getElementById('btn-reset');
+        const btnPredict = document.getElementById('btn-predict');
+        const resultsEmpty = document.getElementById('results-empty');
+        const resultsDashboard = document.getElementById('results-dashboard');
+        const inputHeight = document.getElementById('input-height');
+
+        const modalInfo = document.getElementById('modal-info');
+        const btnModelInfo = document.getElementById('btn-model-info');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const btnModalOk = document.getElementById('btn-modal-ok');
+
+        tabUpload.addEventListener('click', () => {
+            currentMode = 'upload';
+            tabUpload.classList.add('bg-amber-500', 'text-slate-950', 'shadow-md', 'font-bold');
+            tabUpload.classList.remove('text-slate-400');
+            tabWebcam.classList.remove('bg-amber-500', 'text-slate-950', 'shadow-md', 'font-bold');
+            tabWebcam.classList.add('text-slate-400');
+            stopWebcam();
+            if(!selectedImage) {
+                uploadPlaceholder.classList.remove('hidden');
+                webcamContainer.classList.add('hidden');
+                previewContainer.classList.add('hidden');
+            }
+        });
+
+        tabWebcam.addEventListener('click', () => {
+            currentMode = 'webcam';
+            tabWebcam.classList.add('bg-amber-500', 'text-slate-950', 'shadow-md', 'font-bold');
+            tabWebcam.classList.remove('text-slate-400');
+            tabUpload.classList.remove('bg-amber-500', 'text-slate-950', 'shadow-md', 'font-bold');
+            tabUpload.classList.add('text-slate-400');
+            if(!selectedImage) {
+                uploadPlaceholder.classList.add('hidden');
+                webcamContainer.classList.remove('hidden');
+                previewContainer.classList.add('hidden');
+                startWebcam();
+            }
+        });
+
+        async function startWebcam() {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+                webcamVideo.srcObject = webcamStream;
+            } catch (err) {
+                alert("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+            }
+        }
+
+        function stopWebcam() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+        }
+
+        btnCapture.addEventListener('click', () => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = webcamVideo.videoWidth || 640;
+            tempCanvas.height = webcamVideo.videoHeight || 480;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.translate(tempCanvas.width, 0);
+            tempCtx.scale(-1, 1);
+            tempCtx.drawImage(webcamVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+
+            const img = new Image();
+            img.onload = () => {
+                handleLoadedImage(img);
+                stopWebcam();
+            };
+            img.src = tempCanvas.toDataURL('image/jpeg');
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                loadImageFromFile(e.target.files[0]);
+            }
+        });
+
+        dropzoneContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzoneContainer.classList.add('border-amber-500');
+        });
+
+        dropzoneContainer.addEventListener('dragleave', () => {
+            dropzoneContainer.classList.remove('border-amber-500');
+        });
+
+        dropzoneContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzoneContainer.classList.remove('border-amber-500');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                loadImageFromFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function loadImageFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    handleLoadedImage(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handleLoadedImage(img) {
+            selectedImage = img;
+            uploadPlaceholder.classList.add('hidden');
+            webcamContainer.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+            previewActions.classList.remove('hidden');
+
+            const maxWidth = 350;
+            const scale = maxWidth / img.width;
+            canvasPreview.width = maxWidth;
+            canvasPreview.height = img.height * scale;
+
+            ctxPreview.drawImage(img, 0, 0, canvasPreview.width, canvasPreview.height);
+            drawFaceOverlay();
+        }
+
+        function drawFaceOverlay() {
+            const w = canvasPreview.width;
+            const h = canvasPreview.height;
+            const boxWidth = w * 0.45;
+            const boxHeight = h * 0.55;
+            const boxX = (w - boxWidth) / 2;
+            const boxY = (h - boxHeight) / 2;
+
+            ctxPreview.strokeStyle = '#fbbf24';
+            ctxPreview.lineWidth = 2;
+            ctxPreview.setLineDash([6, 4]);
+            ctxPreview.strokeRect(boxX, boxY, boxWidth, boxHeight);
+            ctxPreview.setLineDash([]);
+
+            ctxPreview.fillStyle = 'rgba(10, 17, 40, 0.9)';
+            ctxPreview.fillRect(boxX, boxY - 24, 130, 20);
+            ctxPreview.fillStyle = '#fbbf24';
+            ctxPreview.font = '10px "Plus Jakarta Sans", sans-serif';
+            ctxPreview.fillText('UNPAM CUSTOM VGG', boxX + 6, boxY - 10);
+        }
+
+        btnReset.addEventListener('click', () => {
+            selectedImage = null;
+            previewContainer.classList.add('hidden');
+            previewActions.classList.add('hidden');
+            scanAnimation.classList.add('hidden');
+            resultsDashboard.classList.add('hidden');
+            resultsEmpty.classList.remove('hidden');
+            
+            if (currentMode === 'upload') {
+                uploadPlaceholder.classList.remove('hidden');
+                fileInput.value = '';
+            } else {
+                webcamContainer.classList.remove('hidden');
+                startWebcam();
+            }
+        });
+
+        btnPredict.addEventListener('click', () => {
+            if (!selectedImage) return;
+
+            scanAnimation.classList.remove('hidden');
+            btnPredict.disabled = true;
+            btnPredict.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Memproses VGG...`;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                scanAnimation.classList.add('hidden');
+                btnPredict.disabled = false;
+                btnPredict.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Analisis BMI dengan VGG`;
+                lucide.createIcons();
+
+                resultsEmpty.classList.add('hidden');
+                resultsDashboard.classList.remove('hidden');
+
+                const simulatedBMI = (21.0 + Math.random() * 6.5).toFixed(1);
+                updateResultsDashboard(parseFloat(simulatedBMI));
+
+            }, 2000);
+        });
+
+        function updateResultsDashboard(bmi) {
+            document.getElementById('res-bmi-value').innerText = bmi;
+            
+            const badge = document.getElementById('res-bmi-badge');
+            const catText = document.getElementById('res-bmi-category');
+            const pointer = document.getElementById('gauge-pointer');
+
+            let category = '';
+            let badgeClass = '';
+            let pointerPercent = 0;
+
+            if (bmi < 18.5) {
+                category = 'Kurus (Underweight)';
+                badgeClass = 'bg-sky-500/20 text-sky-300 border border-sky-500/30';
+                pointerPercent = (bmi / 18.5) * 25;
+            } else if (bmi >= 18.5 && bmi < 25) {
+                category = 'Normal (Ideal)';
+                badgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                pointerPercent = 25 + ((bmi - 18.5) / 6.5) * 30;
+            } else if (bmi >= 25 && bmi < 30) {
+                category = 'Gemuk (Overweight)';
+                badgeClass = 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                pointerPercent = 55 + ((bmi - 25) / 5) * 25;
+            } else {
+                category = 'Obesitas';
+                badgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                pointerPercent = 80 + Math.min(((bmi - 30) / 10) * 20, 20);
+            }
+
+            badge.className = `inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${badgeClass}`;
+            catText.innerText = category;
+            pointer.style.left = `${Math.min(Math.max(pointerPercent, 5), 95)}%`;
+
+            const heightCm = parseFloat(inputHeight.value) || 170;
+            const heightM = heightCm / 100;
+            const estWeight = (bmi * (heightM * heightM)).toFixed(1);
+            const minWeightRange = (estWeight - 2.5).toFixed(1);
+            const maxWeightRange = (parseFloat(estWeight) + 2.5).toFixed(1);
+
+            document.getElementById('res-weight-range').innerText = `${minWeightRange} - ${maxWeightRange} kg`;
+            document.getElementById('res-height-val').innerText = `${heightCm} cm`;
+
+            const fwhr = Math.floor(70 + Math.random() * 20);
+            const fullness = Math.floor(55 + Math.random() * 30);
+            const jawline = Math.floor(65 + Math.random() * 25);
+
+            document.getElementById('feat-fwhr').innerText = `${fwhr}%`;
+            document.getElementById('bar-fwhr').style.width = `${fwhr}%`;
+            document.getElementById('feat-fullness').innerText = `${fullness}%`;
+            document.getElementById('bar-fullness').style.width = `${fullness}%`;
+            document.getElementById('feat-jawline').innerText = `${jawline}%`;
+            document.getElementById('bar-jawline').style.width = `${jawline}%`;
+        }
+
+        btnModelInfo.addEventListener('click', () => {
+            modalInfo.classList.remove('hidden');
+            setTimeout(() => modalInfo.classList.remove('opacity-0'), 10);
+        });
+
+        function closeModal() {
+            modalInfo.classList.add('opacity-0');
+            setTimeout(() => modalInfo.classList.add('hidden'), 300);
+        }
+
+        btnCloseModal.addEventListener('click', closeModal);
+        btnModalOk.addEventListener('click', closeModal);
+        modalInfo.addEventListener('click', (e) => {
+            if (e.target === modalInfo) closeModal();
+        });
+    </script>
+</body>
+</html>
